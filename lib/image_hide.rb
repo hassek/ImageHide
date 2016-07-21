@@ -4,10 +4,14 @@ require 'zlib'
 module ChunkType
   END_TOKEN = "IEND"
   HIDDEN_TOKEN = "ruBy"
+
+  def self.include_value?(value)
+    constants.find {|token| const_get(token)==value}
+  end
 end
 
 class ImageHide
-  REQUIRED_METHODS = [:read, :pos, :tell, :rewind, :binmode, :binmode?, :write]
+  REQUIRED_METHODS = [:read, :pos, :tell, :rewind, :binmode, :write]
 
   attr_accessor :image
 
@@ -19,10 +23,30 @@ class ImageHide
         image = File.open(image, 'rb+')
       end
 
-      image = image
       image.binmode.rewind
-
       return image
+    end
+
+    # rewind to a valid ChunkType position
+    # return:
+    #   position
+    #   -1 if no token found
+    def rewind_to_token(tokens=ChunkType.constants)
+      # Always assume is a well formed PNG file
+      # keep going unless we reach the beggining of the image
+      while @image.tell != 0
+        @image.pos = @image.tell - 4
+        token = @image.read(4)
+        if ChunkType.include_value?(token)
+          @image.pos = @image.tell - 8
+          return @image.tell
+        else
+          # keep looking for the token
+          @image.pos = @image.tell - 1
+        end
+      end
+
+      return -1
     end
 
   public
@@ -94,11 +118,8 @@ class ImageHide
 
         puts("Chunk Size: #{chunk_size}")
         puts("Chunk Type: #{chunk_type}")
-        if chunk_type == "IDAT"
-          require 'pry-byebug'; binding.pry
-        end
-
         if chunk_type == ChunkType::HIDDEN_TOKEN
+          rewind_to_token(ChunkType::HIDDEN_TOKEN)
           return ChunkType::HIDDEN_TOKEN
         end
 
@@ -108,8 +129,7 @@ class ImageHide
         puts("CRC: #{crc}")
       end
 
-      # setup position so we can write just before the END_TOKEN
-      @image.pos = (@image.tell - 12)
+      rewind_to_token(ChunkType::END_TOKEN)
       return ChunkType::END_TOKEN
     end
 end
