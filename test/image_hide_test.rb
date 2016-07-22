@@ -20,18 +20,14 @@ class ImageHideUT < Test::Unit::TestCase
     assert_equal(merged_image.seek_token, ChunkType::HIDDEN_TOKEN)
   end
 
-  def test_extract_hidden_image
+  def test_get_hidden_image
     image_hide = ImageHide.new @base_image
     merged_image = image_hide.set_hidden_image @hidden_image
 
     image_hide = ImageHide.new merged_image
     hidden_image = image_hide.get_hidden_image
 
-    assert_equal(hidden_image.read(), @hidden_image.read())
-  end
-
-  # verify crc calculation is correct by calculating a crc from a PNG
-  def test_crc_calculation
+    assert_equal(hidden_image, @hidden_image.read())
   end
 
   def test_rewind_to_token

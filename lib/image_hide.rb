@@ -1,4 +1,4 @@
-require 'stringio'
+require 'logger'
 require 'zlib'
 
 module ChunkType
@@ -12,6 +12,7 @@ end
 
 class ImageHide
   REQUIRED_METHODS = [:read, :pos, :tell, :rewind, :binmode, :write]
+  BIG_ENDIAN = "L>"
 
   attr_accessor :image
 
@@ -51,8 +52,10 @@ class ImageHide
 
   public
 
-    def initialize(image)
+    def initialize(image, log_level=Logger::WARN)
       @image = sanitize(image)
+      @logger = Logger.new(STDOUT)
+      @logger.level = log_level
     end
 
     # TODO to be implemented
@@ -61,7 +64,7 @@ class ImageHide
     end
 
     def generate_crc(token, image_bytes)
-      return [Zlib::crc32("#{token}#{image_bytes}")].pack('!i')
+      return [Zlib::crc32("#{token}#{image_bytes}")].pack(BIG_ENDIAN)
     end
 
     # Hides the given image into the base image
@@ -75,31 +78,33 @@ class ImageHide
 
       token = self.seek_token
       if token != ChunkType::END_TOKEN
-        # XXX change this for a logger warning?
-        puts("image already has a hidden image")
+        @logger.warn("image already has a hidden image")
         return false
       end
 
       hidden_bytes = hidden_image.read()
       crc = self.generate_crc(ChunkType::HIDDEN_TOKEN, hidden_bytes)
-
-      # write chunk size as big endian integer (!i)
-      length = [hidden_bytes.unpack("C*").length].pack('!i')
+      length = [hidden_bytes.unpack("C*").length].pack(BIG_ENDIAN)
 
       ordered_data = [length, ChunkType::HIDDEN_TOKEN, hidden_bytes, crc,
-       [0].pack('!i'), ChunkType::END_TOKEN]
+       [0].pack(BIG_ENDIAN), ChunkType::END_TOKEN]
 
       ordered_data.each { |data| @image.write(data)}
 
       @image.rewind
+      hidden_image.rewind
       return @image
     end
 
-    # TODO to be implemented
     # Extracts the hidden image and returns it as a valid PNG
-    def get_hidden_image(image)
-      if self.seek_token(image) == ChunkType::HIDDEN_TOKEN
+    def get_hidden_image
+      if self.seek_token(@image) == ChunkType::HIDDEN_TOKEN
+        chunk_size = @image.read(4).unpack(BIG_ENDIAN).first
 
+        # skip token
+        @image.read(4)
+        content = @image.read(chunk_size)
+        return content
       end
     end
 
@@ -111,22 +116,21 @@ class ImageHide
       chunk_type = nil
 
       while chunk_type != ChunkType::END_TOKEN
-        # find a more readable way to get the hex number
         # please read here if you are curious about pack/unpack http://blog.bigbinary.com/2011/07/20/ruby-pack-unpack.html
-        chunk_size = @image.read(4).unpack('H*').first.to_i(16)
+        chunk_size = @image.read(4).unpack(BIG_ENDIAN).first
         chunk_type = @image.read(4).encode("ASCII")
 
-        puts("Chunk Size: #{chunk_size}")
-        puts("Chunk Type: #{chunk_type}")
+        @logger.debug("Chunk Size: #{chunk_size}")
+        @logger.debug("Chunk Type: #{chunk_type}")
         if chunk_type == ChunkType::HIDDEN_TOKEN
           rewind_to_token(ChunkType::HIDDEN_TOKEN)
           return ChunkType::HIDDEN_TOKEN
         end
 
         @image.read(chunk_size)
-        crc = @image.read(4).unpack('H*').first.to_i(16)
+        crc = @image.read(4).unpack(BIG_ENDIAN).first
 
-        puts("CRC: #{crc}")
+        @logger.debug("CRC: #{crc}")
       end
 
       rewind_to_token(ChunkType::END_TOKEN)
