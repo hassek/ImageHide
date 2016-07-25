@@ -20,9 +20,7 @@ class ImageHide
   # example:
   #
   #   ih = ImageHide.new "path/to/image.png"
-  #   merged_image = ih.set_hidden_image("path/to/hidden/image")
-  #
-  #   ih = ImageHide.new merged_image
+  #   ih.set_hidden_image("path/to/hidden/image.jpg")
   #   hidden_image = ih.get_hidden_image()
 
 
@@ -33,10 +31,10 @@ class ImageHide
 
   private
 
-    def sanitize(image)
+    def sanitize(image, mode='rb+')
       # if it doesn't implements this methods, assume is a file path
       if not (REQUIRED_METHODS.all? {|method| image.respond_to?(method)})
-        image = File.open(image, 'rb+')
+        image = File.open(image, mode)
       end
 
       image.binmode.rewind
@@ -119,6 +117,8 @@ class ImageHide
 
     def get_hidden_image
       # Extracts the hidden image and returns it as a valid PNG
+      # Return: Bytes of the new extracted image
+
       if self.seek_token(@image) == ChunkType::HIDDEN_TOKEN
         chunk_size = @image.read(4).unpack(BIG_ENDIAN).first
 
@@ -127,6 +127,15 @@ class ImageHide
         content = @image.read(chunk_size)
         return content
       end
+    end
+
+    def get_hidden_image_as_file(file_or_path)
+      # Helper class to save hidden image into a file directly
+
+      hidden = sanitize(file_or_path, mode: 'wb+')
+      hidden.write(self.get_hidden_image())
+      hidden.close()
+      return hidden
     end
 
     def seek_token(image=@image)
