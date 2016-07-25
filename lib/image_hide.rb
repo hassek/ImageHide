@@ -2,6 +2,8 @@ require 'logger'
 require 'zlib'
 
 module ChunkType
+  # PNG Chunk types
+
   END_TOKEN = "IEND"
   HIDDEN_TOKEN = "ruBy"
 
@@ -11,6 +13,19 @@ module ChunkType
 end
 
 class ImageHide
+  # Image Hide allows you to hide an image inside another PNG Image
+  #
+  # To use it the initialized object needs to be the PNG image.
+  #
+  # example:
+  #
+  #   ih = ImageHide("path/to/image.png")
+  #   merged_image = ih.set_hidden_image("path/to/hidden/image")
+  #
+  #   ih = ImageHide(merged_image)
+  #   hidden_image = ih.get_hidden_image()
+
+
   REQUIRED_METHODS = [:read, :pos, :tell, :rewind, :binmode, :write]
   BIG_ENDIAN = "L>"
 
@@ -28,11 +43,12 @@ class ImageHide
       return image
     end
 
-    # rewind to a valid ChunkType position
-    # return:
-    #   position
-    #   -1 if no token found
     def rewind_to_token(tokens=ChunkType.constants)
+      # rewind to a valid ChunkType position
+      # return:
+      #   position
+      #   -1 if no token found
+
       # Always assume is a well formed PNG file
       # keep going unless we reach the beggining of the image
       while @image.tell != 0
@@ -53,6 +69,15 @@ class ImageHide
   public
 
     def initialize(image, log_level=Logger::WARN)
+      # Accepted initializations
+      #
+      # * image path
+      # * File Object
+      # * StringIO Object
+      # * Any other object that responds to the REQUIRED_METHODS
+
+      super()
+
       @image = sanitize(image)
       @logger = Logger.new(STDOUT)
       @logger.level = log_level
