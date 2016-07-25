@@ -19,10 +19,10 @@ class ImageHide
   #
   # example:
   #
-  #   ih = ImageHide("path/to/image.png")
+  #   ih = ImageHide.new "path/to/image.png"
   #   merged_image = ih.set_hidden_image("path/to/hidden/image")
   #
-  #   ih = ImageHide(merged_image)
+  #   ih = ImageHide.new merged_image
   #   hidden_image = ih.get_hidden_image()
 
 
@@ -92,14 +92,10 @@ class ImageHide
       return [Zlib::crc32("#{token}#{image_bytes}")].pack(BIG_ENDIAN)
     end
 
-    # Hides the given image into the base image
     def set_hidden_image(hidden_image)
-      hidden_image = sanitize(hidden_image)
+      # Hides the given image into the base PNG image
 
-      # XXX do we need the hidden image to be PNG?
-      if not (self.is_png? hidden_image)
-        # convert image to png if possible
-      end
+      hidden_image = sanitize(hidden_image)
 
       token = self.seek_token
       if token != ChunkType::END_TOKEN
@@ -121,8 +117,8 @@ class ImageHide
       return @image
     end
 
-    # Extracts the hidden image and returns it as a valid PNG
     def get_hidden_image
+      # Extracts the hidden image and returns it as a valid PNG
       if self.seek_token(@image) == ChunkType::HIDDEN_TOKEN
         chunk_size = @image.read(4).unpack(BIG_ENDIAN).first
 
@@ -133,9 +129,10 @@ class ImageHide
       end
     end
 
-    # returns a HIDDEN_TOKEN if found, else, an END_TOKEN
-    # and leaves the image in the byte where the token was found
     def seek_token(image=@image)
+      # returns a HIDDEN_TOKEN if found, else, an END_TOKEN
+      # and leaves the image in the byte where the token was found
+
       # restart file read position so the function becomes idempotent, also, skip first 8 bytes
       @image.pos = 8
       chunk_type = nil

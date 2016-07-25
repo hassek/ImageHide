@@ -16,5 +16,4 @@ ImageHide is a library to hide an image inside another image!
 ## What it does
 
 * Insert hidden image inside chosen PNG
-* Extract hidden image inside chosen PNG
-* [TODO] Convert other popular image formats to PNG
+* Extract hidden image from chosen PNG
