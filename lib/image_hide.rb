@@ -86,6 +86,10 @@ class ImageHide
       return true
     end
 
+    def has_hidden_image?
+      return (self.seek_token == ChunkType::HIDDEN_TOKEN)
+    end
+
     def generate_crc(token, image_bytes)
       return [Zlib::crc32("#{token}#{image_bytes}")].pack(BIG_ENDIAN)
     end
